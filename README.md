@@ -32,7 +32,7 @@ The model is trained using datasets from both local clinical sources and public 
 - **📁 Mendeley Dataset (Validation Dataset 1)** (Eureka diagnostic center, Lucknow, India):  
   [https://data.mendeley.com/datasets/dy9mfjchm7/1](https://data.mendeley.com/datasets/dy9mfjchm7/1)
 
-- **📁 Kaggle Dataset (Validation Dataset 1)** (Open Source):  
+- **📁 Kaggle Dataset (Validation Dataset 2)** (Open Source):  
   [https://www.kaggle.com/datasets/biswaranjanrao/anemia-dataset](https://www.kaggle.com/datasets/biswaranjanrao/anemia-dataset)
 
 ### References
