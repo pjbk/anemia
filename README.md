@@ -6,7 +6,7 @@ A clinical decision support system (CDSS) designed to diagnose anemia and assess
 
 ## 🌐 Live Web App
 
- **Launch Now**: [https://anemia-dss.streamlit.app/](https://anemia-dss.streamlit.app/)
+ **Launch Now**: [https://anemia.streamlit.app/](https://anemia-dss.streamlit.app/)
 
 ![App Interface](https://github.com/pjbk/dss-anemia/blob/main/App%20interface.png)
 
