@@ -47,83 +47,212 @@ The model is trained using datasets from both local clinical sources and public 
 
 ```python
 # model pipeline pseudocode  
-Input: 
-    Dataset D with Observations O, Features X, Target y
-Output: 
-    Processed Dataset D_processed, Model Evaluation M_ev, 
-    Confidence Intervals CI, Permutation Scores P_scores
+# ANEMIA RISK PREDICTION PIPELINE
+# Comprehensive machine learning pipeline for anemia risk stratification
 
-1.  D ← Load_Anemia_Dataset(O, X, y)
+Input: Dataset D with Observations O, Features X, Target y
+Output: Processed Dataset, Model Evaluation, Confidence Intervals, 
+        Permutation Scores, Nested CV Scores, Risk Stratification
 
-2.  # Handle Missing Values
-3.  for each feature Xi in X do
-4.      D ← Impute_Missing_Values(D, Xi, method="mean", add_flag=True)
-5.      if Missing_Percentage(Xi) ≥ 50% then
-6.          D ← Drop_Feature(D, Xi)
-7.      end if
-8.  end for
+## 1. DATA PREPROCESSING
+def preprocess_data(D):
+    # 1.1 Handle Missing Values
+    for each feature Xi in X:
+        missing_pct = (missing_count(Xi) / total_samples) * 100
+        if missing_pct < 50%:
+            D = impute_missing(D, Xi, method="mean", add_missing_flag=True)
+        else:
+            D = drop_feature(D, Xi)
+    
+    # 1.2 Encode Categorical Features
+    for each categorical feature Xi:
+        D = one_hot_encode(D, Xi)
+    
+    # 1.3 Remove Outliers (Z-score > 3)
+    for each datapoint Xij in D:
+        z_score = (Xij - mean(Xi)) / std(Xi)
+        if abs(z_score) > 3:
+            D = remove_outlier(D, Xij)
+    
+    return D
 
-9.  # Encode Categorical Features
-10. for each categorical feature Xi in X do
-11.     D ← One_Hot_Encode(D, Xi)
-12. end for
+## 2. STATISTICAL FEATURE ANALYSIS
+def analyze_features(D, X, y):
+    results = {}
+    for each feature Xi in X:
+        # 2.1 Descriptive Statistics
+        stats = {
+            'mean': mean(Xi),
+            'median': median(Xi), 
+            'std': standard_deviation(Xi),
+            'skewness': compute_skewness(Xi),
+            'kurtosis': compute_kurtosis(Xi)
+        }
+        
+        # 2.2 Statistical Significance Tests
+        # T-test for normally distributed features
+        t_stat, p_value_ttest = t_test(Xi[y==0], Xi[y==1])
+        
+        # Mann-Whitney U test for non-normal features
+        u_stat, p_value_utest = mann_whitney_u(Xi[y==0], Xi[y==1])
+        
+        # 2.3 Independent Risk Score Calculation
+        # Odds Ratio from univariate logistic regression
+        risk_score = compute_odds_ratio(Xi, y)
+        independent_risk_score = -log10(p_value_ttest) * risk_score
+        
+        # 2.4 SHAP Importance Score
+        # Train temporary model for SHAP analysis
+        temp_model = LogisticRegression()
+        temp_model.fit(Xi.values.reshape(-1, 1), y)
+        explainer = shap.Explainer(temp_model, Xi.values.reshape(-1, 1))
+        shap_values = explainer(Xi.values.reshape(-1, 1))
+        shap_importance_score = np.mean(np.abs(shap_values.values))
+        
+        # 2.5 Correlation Analysis
+        correlations = {}
+        for each Xj ≠ Xi:
+            corr = pearson_correlation(Xi, Xj)
+            correlations[Xj] = corr
+        
+        # 2.6 Feature Importance
+        rf_importance = random_forest_importance(Xi)
+        
+        # Compile all results for feature Xi
+        results[Xi] = {
+            **stats, 
+            'p_values': {
+                't_test': p_value_ttest,
+                'u_test': p_value_utest
+            },
+            'risk_scores': {
+                'odds_ratio': risk_score,
+                'independent_risk_score': independent_risk_score
+            },
+            'importance_scores': {
+                'random_forest': rf_importance,
+                'shap_importance': shap_importance_score
+            },
+            'correlations': correlations
+        }
+    
+    return results
 
-13. # Remove Outliers using Z-Score
-14. for each datapoint Xij in D do
-15.     Z ← Compute_Z_Score(Xij)
-16.     if |Z| > 3 then
-17.         D ← Remove_Outlier(D, Xij)
-18.     end if
-19. end for
+## 3. RISK STRATIFICATION ANALYSIS
+def risk_stratification(D, X, y):
+    # 3.1 Composite Risk Score: Σβᵢxᵢ
+    composite_risk = sum(β_i * x_i for each feature i)
+    
+    # 3.2 Tertile Stratification
+    risk_tertiles = {
+        'Low': ≤ 33rd percentile,
+        'Medium': 33rd–66th percentile,
+        'High': > 66th percentile
+    }
+    
+    # 3.3 Demographic Analysis
+    for age_group in age_groups:
+        for gender in genders:
+            group_risk = compute_risk_score(age_group, gender)
+            event_rate = compute_event_rate(age_group, gender)
+    
+    return risk_tertiles, composite_risk
 
-20. # Analyze Target Distribution
-21. for each class yi in y do
-22.     p(yi) ← Count(yi) / Total_Count(y)
-23. end for
+## 4. MODEL DEFINITION & STACKING
+def define_models():
+    # Base Models
+    models = {
+        'DecisionTree': DecisionTreeClassifier(criterion='gini', max_depth=3, min_samples_split=3),
+        'LogisticRegression': LogisticRegression(C=20, solver='liblinear', max_iter=1000),
+        'SVM': SVC(C=10, kernel='linear', probability=True, random_state=42),
+        'KNN': KNeighborsClassifier(n_neighbors=5),
+        'NaiveBayes': GaussianNB(var_smoothing=2.88176e-10)
+    }
+    
+    # Stacking Ensemble
+    stack = StackingCVClassifier(
+        classifiers=[dtc, lr, svc, knn, gnb],
+        meta_classifier=SVC(C=10, kernel='linear', probability=True, random_state=42),
+        cv=5, use_probas=True, random_state=42, shuffle=True,
+        use_features_in_secondary=True
+    )
+    
+    return models, stack
 
-24. # Statistical Feature Analysis
-25. for each feature Xi in X do
-26.     Compute: mean, median, std, skewness, kurtosis, p-value
-27.     for each feature Xj ≠ Xi do
-28.         ρ_ij ← Pearson_Correlation(Xi, Xj)
-29.     end for
-30.     Importance[Xi] ← Feature_Importance(RandomForest, Xi)
-31. end for
+## 5. MODEL TRAINING & EVALUATION
+def train_evaluate_models(D_processed):
+    # 5.1 Stratified Train-Test Split
+    D_train_val, D_test = stratified_split(D_processed, test_size=0.2, random_state=42)
+    
+    models, stack = define_models()
+    results = {}
+    
+    # 5.2 Model Optimization & Evaluation
+    for model_name, model in models.items():
+        # Hyperparameter Tuning
+        optimized_model = grid_search_tuning(model, D_train_val)
+        
+        # Cross-Validation
+        cv_scores = cross_validate(optimized_model, D_train_val, cv=5, 
+                                 scoring=['accuracy', 'precision', 'recall', 'f1'])
+        
+        # Final Test Evaluation
+        test_score = evaluate(optimized_model, D_test)
+        ci = bootstrap_confidence_interval(test_score, n_bootstraps=1000)
+        perm_scores = permutation_test(optimized_model, D_test, n_permutations=1000)
+        nested_cv = nested_cross_validation(optimized_model, D_processed)
+        
+        results[model_name] = {
+            'cv_scores': cv_scores,
+            'test_score': test_score,
+            'confidence_interval': ci,
+            'permutation_scores': perm_scores,
+            'nested_cv': nested_cv
+        }
+    
+    return results
 
-32. D_processed ← D
+## 6. MODEL EXPLAINABILITY
+def explain_best_model(best_model, D_processed):
+    # SHAP Analysis
+    explainer = shap.Explainer(best_model)
+    shap_values = explainer.shap_values(D_processed)
+    
+    # Feature Importance Plot
+    shap.summary_plot(shap_values, D_processed)
+    
+    return shap_values
 
-33. # Split Dataset
-34. D_train_val, D_test_strat ← Stratified_Split(D_processed, test_size=20%)
+## 7. MAIN EXECUTION PIPELINE
+def main_pipeline(D):
+    # 7.1 Preprocess Data
+    D_processed = preprocess_data(D)
+    
+    # 7.2 Statistical Analysis
+    feature_analysis = analyze_features(D_processed, X, y)
+    
+    # 7.3 Risk Stratification
+    risk_tertiles, composite_risk = risk_stratification(D_processed, X, y)
+    
+    # 7.4 Model Training & Evaluation
+    model_results = train_evaluate_models(D_processed)
+    
+    # 7.5 Explain Best Model
+    best_model = select_best_model(model_results)
+    shap_explanation = explain_best_model(best_model, D_processed)
+    
+    # 7.6 Return Comprehensive Results
+    return {
+        'processed_data': D_processed,
+        'feature_analysis': feature_analysis,
+        'risk_stratification': risk_tertiles,
+        'model_results': model_results,
+        'best_model': best_model,
+        'shap_explanation': shap_explanation
+    }
 
-35. # Define Models
-36. Models ← {DecisionTree, GradientBoosting, RandomForest, ExtraTrees}
-
-37. # Model Optimization on Training Data
-38. for each model M in Models do
-39.     M_optimized ← Grid_Search_Tuning(M, D_train_val)
-40.     Optimized_Models.add(M_optimized)
-41. end for
-
-42. # Cross-Validation Performance on Train/Val Set
-43. for each M_opt in Optimized_Models do
-44.     CV_Scores ← Cross_Validate(M_opt, D_train_val, folds=5)
-45.     M_ev.add((M_opt, CV_Scores))
-46. end for
-
-47. # Evaluate Final Models on Unseen Stratified Test Set
-48. for each M_opt in Optimized_Models do
-49.     Test_Score ← Evaluate(M_opt, D_test_strat)
-50.     CI ← Compute_Confidence_Interval(Test_Score, method="bootstrap", confidence_level=95%)
-51.     P_scores ← Permutation_Validation(M_opt, D_test_strat, n_permutations=1000)
-52.     Final_Eval.add((M_opt, Test_Score, CI, P_scores))
-53. end for
-
-54. # SHAP Explainability on Best Model
-55. Best_Model ← Select_Best_Model(Final_Eval)
-56. SHAP_Explain(Best_Model, D_processed)
-
-57. return D_processed, Final_Eval, Confidence_Intervals CI, Permutation Scores P_scores
-
+# Execute Pipeline
+final_results = main_pipeline(D)
 ```
 ---
 ## Quick Start
